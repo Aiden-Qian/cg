@@ -47,9 +47,26 @@ std::vector<Point> load_xyz(const std::string &filename) {
 	std::vector<Point> points;
 	std::ifstream in(filename);
 	// TODO
+	if(!in.is_open()){
+		std::cerr<<"Error opening file"<<std::endl;
+	}
+	char n;
+    in.get(n);
+	std::string s=" ";
+	while(std::getline(in,s)){
+		std::cout<<s<<std::endl;
+		size_t pos=s.find(" ");
+		double x=std::stod (s.substr(0,pos));
+		s=s.substr(pos+1,s.size());
+		pos=s.find(" ");
+		double y=std::stod (s.substr(pos+1, pos));
+		Point a(x,y);
+		points.push_back(a);
+	}
+
 	return points;
 }
-
+/*
 void save_obj(const std::string &filename, Polygon &poly) {
 	std::ofstream out(filename);
 	if (!out.is_open()) {
@@ -64,7 +81,7 @@ void save_obj(const std::string &filename, Polygon &poly) {
 	}
 	out << std::endl;
 }
-
+*/
 ////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char * argv[]) {
@@ -73,6 +90,10 @@ int main(int argc, char * argv[]) {
 	}
 	std::vector<Point> points = load_xyz(argv[1]);
 	Polygon hull = convex_hull(points);
-	save_obj(argv[2], hull);
+	//save_obj(argv[2], hull);
 	return 0;
 }
+
+/*There are some differences between cout and cerr. 
+std::cerr is attached to the standard error device, which is also a display screen
+*/
