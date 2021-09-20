@@ -10,15 +10,32 @@
 typedef std::complex<double> Point;
 typedef std::vector<Point> Polygon;
 
-double inline det(const Point &u, const Point &v) {
+double inline det(const Point &u, const Point &v, const Point &p) {  //determinant
 	// TODO
-	return 0;
+	double d=(u.real()-p.real())*(v.imag()-p.imag())-(u.imag()-p.imag())*(v.real()-p.real());
+	return d;
 }
 
 // Return true iff [a,b] intersects [c,d], and store the intersection in ans
 bool intersect_segment(const Point &a, const Point &b, const Point &c, const Point &d, Point &ans) {
 	// TODO
-	return true;
+	double h1,h2;
+	double dis_a_b=(b.real()-a.real())*(b.real()-a.real())+(b.imag()-a.imag())*(b.imag()-a.imag());
+
+	if(det(c,d,a)*det(c,d,b)<0 && det(a,b,c)*det(a,b,d)<0){//intersect
+	    h1=sqrt(det(d,b,a)*det(d,b,a)/dis_a_b);
+		h2=sqrt(det(c,b,a)*det(c,b,a)/dis_a_b);
+        double x=(1-h1/(h1+h2))*(d.real()-c.real())+c.real();
+		double y=(1-h1/(h1+h2))*(d.imag()-c.imag())+c.imag();
+		ans= std::complex<double> (x,y);
+		double edge_a_x=a.real();
+		double edge_a_y=a.imag();
+		double edge_b_x=b.real();
+		double edge_b_y=b.imag();
+		if((x==edge_a_x&&y==edge_a_y)||(x==edge_b_x&&y==edge_b_y)) return false; //If intersection is on the edge.
+		return true;
+	}
+	return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -29,6 +46,21 @@ bool is_inside(const Polygon &poly, const Point &query) {
 	Point outside(0, 0);
 	// 2. Cast a ray from the query point to the 'outside' point, count number of intersections
 	// TODO
+	int intersects;
+	Point ans;
+	for(int i=0;i<poly.size();i++){
+		if(i==poly.size()-1){
+			if(intersect_segment(poly.front(),poly.back(),outside,query,ans)){
+				++intersects;
+			}
+		}
+		else{
+			if(intersect_segment(poly.at(i),poly.at(i+1),outside,query,ans)){
+				++intersects;
+			}
+		}
+	}
+	if(intersects%2==0) return false;
 	return true;
 }
 
@@ -38,17 +70,72 @@ std::vector<Point> load_xyz(const std::string &filename) {
 	std::vector<Point> points;
 	std::ifstream in(filename);
 	// TODO
+	if(!in.is_open()){
+		std::cerr<<"Error opening file"<<std::endl;
+	}
+	std::string dummyline;
+	std::getline(in,dummyline);
+
+	std::string s=" ";
+	while(std::getline(in,s)){
+		size_t pos=s.find(" ");
+		double x=std::stod (s.substr(0,pos));
+		s=s.substr(pos+1,s.size());
+		pos=s.find(" ");
+		double y=std::stod (s.substr(0,pos));
+		Point p(x,y);
+		points.push_back(p);
+	}
 	return points;
 }
 
 Polygon load_obj(const std::string &filename) {
 	std::ifstream in(filename);
 	// TODO
-	return {};
+	Polygon obj;
+	std::vector<Point> temp;
+	std::string s=" ";
+	while(std::getline(in,s)){
+		size_t pos=s.find(" ");
+		std::string ele=s.substr(0,pos);
+		if(ele=="v"){
+			s=s.substr(pos+1,s.size());
+		    pos=s.find(" ");
+		    double x=std::stod (s.substr(0,pos));
+			s=s.substr(pos+1,s.size());
+		    pos=s.find(" ");
+			double y=std::stod (s.substr(0,pos));
+			Point p(x,y);
+			temp.push_back(p);
+		}
+		else if(ele=="f"){
+			while(pos!=s.npos){
+				s=s.substr(pos+1,s.size());
+				pos=s.find(" ");
+		        double n=std::stod (s.substr(0,pos));
+				obj.push_back(temp.at(n-1));
+			}		
+		}
+	}
+	return obj;
 }
 
 void save_xyz(const std::string &filename, const std::vector<Point> &points) {
 	// TODO
+	std::ofstream out(filename);
+	if (!out.is_open()) {
+		throw std::runtime_error("failed to open file " + filename);
+	}
+	out << std::fixed;
+	out<<points.size()<<std::endl;
+	for (const auto &v : points) {
+		out << v.real() << ' ' << v.imag() << " 0\n";
+	}
+	/*
+	for (size_t i = 0; i < points.size(); ++i) {
+		out << "l " << i+1 << ' ' << 1+(i+1)%points.size() << "\n";
+	}*/
+	out << std::endl;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
