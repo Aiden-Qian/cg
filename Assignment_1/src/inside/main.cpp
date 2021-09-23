@@ -22,17 +22,14 @@ bool intersect_segment(const Point &a, const Point &b, const Point &c, const Poi
 	double h1,h2;
 	double dis_a_b=(b.real()-a.real())*(b.real()-a.real())+(b.imag()-a.imag())*(b.imag()-a.imag());
 
+	if(d.imag()/d.real()==b.imag()/b.real() ||d.imag()/d.real()==a.imag()/a.real()) return false;//To know if the intersect is on the vertex
+
 	if(det(c,d,a)*det(c,d,b)<0 && det(a,b,c)*det(a,b,d)<0){//intersect
 	    h1=sqrt(det(d,b,a)*det(d,b,a)/dis_a_b);
 		h2=sqrt(det(c,b,a)*det(c,b,a)/dis_a_b);
         double x=(1-h1/(h1+h2))*(d.real()-c.real())+c.real();
 		double y=(1-h1/(h1+h2))*(d.imag()-c.imag())+c.imag();
 		ans= std::complex<double> (x,y);
-		double edge_a_x=a.real();
-		double edge_a_y=a.imag();
-		double edge_b_x=b.real();
-		double edge_b_y=b.imag();
-		if((x==edge_a_x&&y==edge_a_y)||(x==edge_b_x&&y==edge_b_y)) return false; //If intersection is on the edge.
 		return true;
 	}
 	return false;
