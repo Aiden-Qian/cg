@@ -20,17 +20,16 @@ double inline det(const Point &u, const Point &v, const Point &p) {  //determina
 bool intersect_segment(const Point &a, const Point &b, const Point &c, const Point &d, Point &ans) {
 	// TODO
 	double h1,h2;
-	double dis_a_b=(b.real()-a.real())*(b.real()-a.real())+(b.imag()-a.imag())*(b.imag()-a.imag());
+
 
 
 	if(det(c,d,a)*det(c,d,b)<0 && det(a,b,c)*det(a,b,d)<0){//intersect
-	    h1=sqrt(det(d,b,a)*det(d,b,a)/dis_a_b);
-		h2=sqrt(det(c,b,a)*det(c,b,a)/dis_a_b);
-        double x=(1-h1/(h1+h2))*(d.real()-c.real())+c.real();
-		double y=(1-h1/(h1+h2))*(d.imag()-c.imag())+c.imag();
+
+        double x=a.real()*(det(d,c,b)/2)/(det(c,d,a)/2+det(d,c,b)/2)+b.real()*(det(c,d,a)/2)/(det(c,d,a)/2+det(d,c,b)/2);
+		double y=a.imag()*(det(d,c,b)/2)/(det(c,d,a)/2+det(d,c,b)/2)+b.imag()*(det(c,d,a)/2)/(det(c,d,a)/2+det(d,c,b)/2);
 		ans= std::complex<double> (x,y);
-		
-		if(d.imag()/d.real()==b.imag()/b.real() ||d.imag()/d.real()==a.imag()/a.real()) return false;//To know if the intersect is on the vertex
+	
+		if(x==a.real() && y==a.imag()) return false;//To know if the intersect is on the vertex
 
 		return true;
 	}
