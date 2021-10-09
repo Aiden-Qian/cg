@@ -375,12 +375,92 @@ void raytrace_rgb_shading(){
 	write_matrix_to_png(R,G,B,A,filename);
 }
 
+void raytrace_shading_paralle(){
+	std::cout << "Simple ray tracer, one paralle with different shading" << std::endl;
+
+	const std::string filename("shading_paralle.png");
+	MatrixXd R = MatrixXd::Zero(800,800); 
+	MatrixXd G = MatrixXd::Zero(800,800); 
+	MatrixXd B = MatrixXd::Zero(800,800); 
+	MatrixXd A = MatrixXd::Zero(800,800); // Store the alpha mask
+
+	// The camera is perspective, pointing in the direction -z and covering the unit square (-1,1) in x and y
+	Vector3d origin(-1,1,1);
+	Vector3d x_displacement(2.0/R.cols(),0,0);
+	Vector3d y_displacement(0,-2.0/R.rows(),0);
+
+	// Single light source
+	const Vector3d light_position(-1,1,1);
+	double ambient = 0.1;
+	MatrixXd diffuse = MatrixXd::Zero(800, 800);
+	MatrixXd specular = MatrixXd::Zero(800, 800);
+
+	// TODO: Parameters of the parallelogram (position of the lower-left corner + two sides)
+	Vector3d pgram_origin(0.0,0.0,0.0);
+	Vector3d pgram_u(-0.5,0.5, -0.5);
+	Vector3d pgram_v(-0.5, 0.0, 0.0);
+
+
+	for (unsigned i=0; i < R.cols(); ++i) {
+		for (unsigned j=0; j < R.rows(); ++j) {
+			// Prepare the ray
+			Vector3d ray_origin = origin + double(i)*x_displacement + double(j)*y_displacement;
+			Vector3d ray_direction = RowVector3d(0,0,-1);
+
+			// TODO: Check if the ray intersects with the parallelogram
+			Matrix3d leftEqu;
+			Vector3d rightEqu;
+			Vector3d uvt;
+			for(int i=0;i<3;i++){
+				leftEqu(i,0)=pgram_origin[i]-pgram_u[i];//i=0,(a-b)x; i=1,(a-b)y; i=2,(a-b)z
+				leftEqu(i,1)=pgram_origin[i]-pgram_v[i];//i=0,(a-c)x; i=1,(a-c)y; i=2,(a-c)z
+				leftEqu(i,2)=ray_direction[i];
+			}
+			rightEqu= pgram_origin-ray_origin;
+			uvt= leftEqu.colPivHouseholderQr().solve(rightEqu);
+
+			if (uvt[0]<=1 &&uvt[0]>=0 &&uvt[1]<=1&&uvt[1]>=0&&uvt[2]>0) {
+				// The ray hit the sphere, compute the exact intersection point
+				Vector3d ray_intersection = uvt[2] * ray_direction + ray_origin;
+
+				// Compute normal at the intersection point
+				Vector3d ray_normal = pgram_u.cross(pgram_v).normalized(); //(b-a)x(c-a)/|(b-a)x(c-a)|
+
+				// TODO: Add shading parameter here
+				double phong=100;
+				double diff_coe=0.7;
+				double spec_coe=1;
+				diffuse(i,j) = (light_position-ray_intersection).normalized().transpose() * ray_normal;
+				specular(i,j) = pow(((ray_origin - ray_intersection) + (light_position - ray_intersection)).normalized().transpose() * ray_normal,phong);
+				
+				// Simple diffuse model
+				R(i,j) = ambient + diff_coe*diffuse(i,j) + spec_coe*specular(i,j);
+				G(i,j) = ambient + diff_coe*diffuse(i,j) + spec_coe*specular(i,j);
+				B(i,j) = ambient + 0.6*diffuse(i,j) + 1*specular(i,j);
+
+				// Clamp to zero
+				R(i,j) = std::max(R(i,j),0.);
+				G(i,j) = std::max(G(i,j),0.);
+				B(i,j) = std::max(B(i,j),0.);
+
+
+				// Disable the alpha mask for this pixel
+				A(i,j) = 1;
+			}
+		}
+	}
+
+	// Save to png
+	write_matrix_to_png(R,G,B,A,filename);
+}
+
 int main() {
 	raytrace_sphere();
 	raytrace_parallelogram();
 	raytrace_perspective();
 	raytrace_shading();
 	raytrace_rgb_shading();
+	raytrace_shading_paralle();
 
 	return 0;
 }
