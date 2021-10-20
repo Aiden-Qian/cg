@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <gif.h>
 
 // Eigen for matrix operations
 #include <Eigen/Dense>
@@ -107,12 +108,54 @@ bool Sphere::intersect(const Ray &ray, Intersection &hit) {
 	// Compute the intersection between the ray and the sphere
 	// If the ray hits the sphere, set the result of the intersection in the
 	// struct 'hit'
-	return false;
+	double a=ray.direction.dot(ray.direction); //d*d
+	double b=2*ray.direction.dot(ray.origin-position); //2d(e-c)
+    double c=(ray.origin-position).dot(ray.origin-position)-radius*radius;// (e-c)(e-c)-R*R
+	double delta=b*b-4*a*c;
+	if(delta>=0){
+		double t,t1,t2;
+	    if(delta==0){
+			t=(-b)/(2*a);
+		}
+		else{
+			t1=(-b+sqrt(delta))/(2*a);
+			t2=(-b-sqrt(delta))/(2*a);
+			if(t1>=0 && t2>=0){
+				if(t1<t2) t=t1;
+				else t=t2;
+			}
+			else if(t1 < 0 && t2 < 0) return false;
+			else if(t1>=0 && t2<0) t=t1;
+			else t=t2;
+
+		}
+	    hit.position=t * ray.direction+ray.origin;
+	 	hit.normal = (hit.position - position).normalized();//p-c
+		return true;
+	}
+	else return false; 
+	
 }
 
 bool Parallelogram::intersect(const Ray &ray, Intersection &hit) {
 	// TODO
-	return false;
+	Matrix3d leftEqu;
+	Vector3d rightEqu;
+	Vector3d uvt;
+	for(int i=0;i<3;i++){
+		leftEqu(i,0)=origin[i]-u[i];//i=0,(a-b)x; i=1,(a-b)y; i=2,(a-b)z
+		leftEqu(i,1)=origin[i]-v[i];//i=0,(a-c)x; i=1,(a-c)y; i=2,(a-c)z
+		leftEqu(i,2)=ray.direction[i];
+	}
+	rightEqu= origin-ray.origin;
+	uvt= leftEqu.colPivHouseholderQr().solve(rightEqu);
+
+	if (uvt[0]<=1 &&uvt[0]>=0 &&uvt[1]<=1&&uvt[1]>=0&&uvt[2]>0) {
+		hit.position = uvt[2] * ray.direction + ray.origin;
+		hit.normal = u.cross(v).normalized();//(b-a)x(c-a)/|(b-a)x(c-a)|
+		return true;
+	}
+	else return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -136,17 +179,21 @@ Vector3d ray_color(const Scene &scene, const Ray &ray, const Object &obj, const 
 
 	// Punctual lights contribution (direct lighting)
 	Vector3d lights_color(0, 0, 0);
+	double offset=1e-4;
 	for (const Light &light : scene.lights) {
 		Vector3d Li = (light.position - hit.position).normalized();
 		Vector3d N = hit.normal;
 
 		// TODO: Shoot a shadow ray to determine if the light should affect the intersection point
-
+		Ray shadow_ray(hit.position + offset*Li , Li);
+		if(!is_light_visible(scene, shadow_ray,light)){
+			continue;
+		}
 		// Diffuse contribution
 		Vector3d diffuse = mat.diffuse_color * std::max(Li.dot(N), 0.0);
 
 		// TODO: Specular contribution
-		Vector3d specular(0, 0, 0);
+		Vector3d specular=mat.specular_color*std::pow(std::max(N.dot(((light.position - hit.position) - ray.direction).normalized()), 0.0), mat.specular_exponent);
 
 		// Attenuate lights according to the squared distance to the lights
 		Vector3d D = light.position - hit.position;
@@ -155,11 +202,90 @@ Vector3d ray_color(const Scene &scene, const Ray &ray, const Object &obj, const 
 
 	// TODO: Compute the color of the reflected ray and add its contribution to the current point color.
 	Vector3d reflection_color(0, 0, 0);
+    Ray reflected_ray;
+	Intersection reflected_hit;
+	int reflected_bounce=max_bounce;
+	reflected_ray.origin=hit.position;
+	reflected_ray.direction=ray.direction-2 *(hit.normal.dot(ray.direction)) * hit.normal;
+	reflected_ray.origin += offset*reflected_ray.direction;
+	
+	for(int i=0;i<reflected_bounce;i++){
+		if(Object * obj = find_nearest_object(scene, reflected_ray, reflected_hit)){
+			for (const Light &light : scene.lights) {
+			Vector3d Li = (light.position - reflected_hit.position).normalized();
+			Vector3d N = hit.normal;
+
+			// TODO: Shoot a shadow ray to determine if the light should affect the intersection point
+			Ray shadow_ray;
+			
+			shadow_ray.origin=reflected_hit.position;
+			shadow_ray.direction=(light.position-reflected_hit.position);
+			shadow_ray.origin=shadow_ray.origin+offset*shadow_ray.direction;
+			if(!is_light_visible(scene, shadow_ray,light)){
+				continue;
+			}
+			// Diffuse contribution
+			Vector3d diffuse = mat.diffuse_color * std::max(Li.dot(N), 0.0);
+
+			// TODO: Specular contribution
+			Vector3d specular=mat.specular_color*std::pow(std::max((Li+(reflected_ray.origin-reflected_hit.position).normalized()).normalized().dot(N), 0.0), mat.specular_exponent);
+
+			// Attenuate lights according to the squared distance to the lights
+			Vector3d D = light.position - reflected_hit.position;
+			lights_color += (diffuse + specular).cwiseProduct(light.intensity) /  D.squaredNorm();
+		    }
+			reflected_ray.origin=reflected_hit.position;
+			reflected_ray.direction=(reflected_ray.direction-2 * (reflected_ray.direction.dot(reflected_hit.normal)) * reflected_hit.normal).normalized();
+			reflected_ray.origin += offset*reflected_ray.direction;
+
+		}
+		else break;
+	}  
+
 
 	// TODO: Compute the color of the refracted ray and add its contribution to the current point color.
 	//       Make sure to check for total internal reflection before shooting a new ray.
 	Vector3d refraction_color(0, 0, 0);
+	Ray refraction_ray;
+	Intersection refraction_hit;
+    int refraction_bounce=max_bounce;
+	refraction_ray.origin=hit.position;
+	const double ri = mat.refraction_index;
+	refraction_ray.direction = ri*ray.direction + hit.normal*(ri*ray.direction.dot(hit.normal)+sqrt(1-sqrt(ri)*(1-sqrt(ray.direction.dot(hit.normal)))));
+	refraction_ray.origin += offset*refraction_ray.direction;
+	for(int i=0;i<refraction_bounce;i++){
+		if(Object * obj = find_nearest_object(scene, refraction_ray, refraction_hit)){
+			for (const Light &light : scene.lights) {
+			Vector3d Li = (light.position - refraction_hit.position).normalized();
+			Vector3d N = refraction_hit.normal;
 
+			// TODO: Shoot a shadow ray to determine if the light should affect the intersection point
+			Ray shadow_ray;
+			
+			shadow_ray.origin=refraction_hit.position;
+			shadow_ray.direction=(light.position-refraction_hit.position);
+			shadow_ray.origin=shadow_ray.origin+offset*shadow_ray.direction;
+			if(!is_light_visible(scene, shadow_ray,light)){
+				continue;
+			}
+			// Diffuse contribution
+			Vector3d diffuse = mat.diffuse_color * std::max(Li.dot(N), 0.0);
+
+			// TODO: Specular contribution
+			Vector3d specular=mat.specular_color*std::pow(std::max((Li+(refraction_ray.origin-refraction_hit.position).normalized()).normalized().dot(N), 0.0), mat.specular_exponent);
+
+			// Attenuate lights according to the squared distance to the lights
+			Vector3d D = light.position - refraction_hit.position;
+			lights_color += (diffuse + specular).cwiseProduct(light.intensity) /  D.squaredNorm();
+		    }
+			refraction_ray.origin=refraction_hit.position;
+			refraction_ray.direction = ri*ray.direction + hit.normal*(ri*ray.direction.dot(hit.normal)+sqrt(1-sqrt(ri)*(1-sqrt(ray.direction.dot(hit.normal)))));
+			refraction_ray.origin += offset*refraction_ray.direction;
+
+		}
+		else break;
+		
+	} 
 	// Rendering equation
 	Vector3d C = ambient_color + lights_color + reflection_color + refraction_color;
 
@@ -177,6 +303,22 @@ Object * find_nearest_object(const Scene &scene, const Ray &ray, Intersection &c
 	// return a pointer to the hit object, and set the parameters of the argument
 	// 'hit' to their expected values.
 
+	Intersection temp_hit;
+	for(int i=0;i<scene.objects.size();i++){
+		if(scene.objects[i].get()->intersect(ray,temp_hit)){
+			if(closest_index<0){
+				closest_index=i;
+				closest_hit=temp_hit;
+			}
+			else{
+				if((ray.origin-closest_hit.position).squaredNorm()>(ray.origin-temp_hit.position).squaredNorm()){
+					closest_index=i;
+				    closest_hit=temp_hit;
+				}
+			}
+		}
+	}
+
 	if (closest_index < 0) {
 		// Return a NULL pointer
 		return nullptr;
@@ -188,7 +330,8 @@ Object * find_nearest_object(const Scene &scene, const Ray &ray, Intersection &c
 
 bool is_light_visible(const Scene &scene, const Ray &ray, const Light &light) {
 	// TODO: Determine if the light is visible here
-	return true;
+	Intersection closest_hit;
+	return find_nearest_object(scene,ray, closest_hit)==nullptr;
 }
 
 Vector3d shoot_ray(const Scene &scene, const Ray &ray, int max_bounce) {
@@ -206,6 +349,7 @@ Vector3d shoot_ray(const Scene &scene, const Ray &ray, int max_bounce) {
 
 void render_scene(const Scene &scene) {
 	std::cout << "Simple ray tracer." << std::endl;
+	
 
 	int w = 640;
 	int h = 480;
@@ -217,9 +361,9 @@ void render_scene(const Scene &scene) {
 	// The camera always points in the direction -z
 	// The sensor grid is at a distance 'focal_length' from the camera center,
 	// and covers an viewing angle given by 'field_of_view'.
-	double aspect_ratio = double(w) / double(h);
-	double scale_y = 1.0; // TODO: Stretch the pixel grid by the proper amount here
-	double scale_x = 1.0; //
+	double aspect_ratio = double(w) / double(h); 
+	double scale_y = scene.camera.focal_length*tan(scene.camera.field_of_view/2.0); // TODO: Stretch the pixel grid by the proper amount here //P1
+	double scale_x =aspect_ratio*scale_y; //
 
 	// The pixel grid through which we shoot rays is at a distance 'focal_length'
 	// from the sensor, and is scaled from the canonical [-1,1] in order
@@ -228,17 +372,31 @@ void render_scene(const Scene &scene) {
 	Vector3d x_displacement(2.0/w*scale_x, 0, 0);
 	Vector3d y_displacement(0, -2.0/h*scale_y, 0);
 
+	
+
 	for (unsigned i = 0; i < w; ++i) {
 		for (unsigned j = 0; j < h; ++j) {
 			// TODO: Implement depth of field
+			int number_ray=100;
 			Vector3d shift = grid_origin + (i+0.5)*x_displacement + (j+0.5)*y_displacement;
 
 			// Prepare the ray
 			Ray ray;
 
 			if (scene.camera.is_perspective) {
-				// Perspective camera
-				// TODO
+				
+				for (int k = 0; k <number_ray; k++) {
+                    ray.origin=scene.camera.position; 
+					
+					double x,y;
+				    x= (double)rand()/RAND_MAX*2.0-1.0;;
+				    y= (double)rand()/RAND_MAX*2.0-1.0;;
+
+				    ray.origin[0]+=scene.camera.lens_radius*x;
+				    ray.origin[1]+=scene.camera.lens_radius*y;
+                    ray.direction=shift-ray.origin; 
+                } 
+
 			} else {
 				// Orthographic camera
 				ray.origin = scene.camera.position + Vector3d(shift[0], shift[1], 0);
@@ -251,11 +409,14 @@ void render_scene(const Scene &scene) {
 			G(i, j) = C(1);
 			B(i, j) = C(2);
 			A(i, j) = 1;
+		    
 		}
 	}
 
+	
+
 	// Save to png
-	const std::string filename("raytrace.png");
+	const std::string filename("raytrace11.png");
 	write_matrix_to_png(R, G, B, A, filename);
 }
 
@@ -316,6 +477,10 @@ Scene load_scene(const std::string &filename) {
 			object = sphere;
 		} else if (entry["Type"] == "Parallelogram") {
 			// TODO
+			auto parallelogram = std::make_shared<Parallelogram>();
+			parallelogram->origin = read_vec3(entry["Origin"]);
+            parallelogram->u = read_vec3(entry["u"]);
+            parallelogram->v = read_vec3(entry["v"]);
 		}
 		object->material = scene.materials[entry["Material"]];
 		scene.objects.push_back(object);
@@ -332,6 +497,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 	Scene scene = load_scene(argv[1]);
-	render_scene(scene);
+    render_scene(scene);
+	
 	return 0;
 }
