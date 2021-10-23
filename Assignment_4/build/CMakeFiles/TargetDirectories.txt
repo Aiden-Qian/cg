@@ -1,0 +1,3 @@
+/Users/qc/Desktop/NYU_MSIS/21fall/Computer_graphic/cg/Assignment_4/build/CMakeFiles/rebuild_cache.dir
+/Users/qc/Desktop/NYU_MSIS/21fall/Computer_graphic/cg/Assignment_4/build/CMakeFiles/edit_cache.dir
+/Users/qc/Desktop/NYU_MSIS/21fall/Computer_graphic/cg/Assignment_4/build/CMakeFiles/assignment4.dir

@@ -1,16 +1,16 @@
 {
 	"Scene":
 	{
-		"Background": [0.3, 0.3, 0.3],
-		"Ambient": [0.2, 0.2, 0.2]
+		"Background": [0.1, 0.1, 0.1],
+		"Ambient": [0.1, 0.1, 0.1]
 	},
 
 	"Camera":
 	{
 		"IsPerspective": true,
-		"Position": [20, 0, 50],
+		"Position": [0, 0, 5],
 		"FieldOfView": 0.7854,
-		"FocalLength": 5.0,
+		"FocalLength": 8.0,
 		"LensRadius": 0.08
 	},
 	"Materials": [

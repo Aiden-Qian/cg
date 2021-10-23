@@ -169,7 +169,7 @@ AlignedBox3d bbox_triangle(const Vector3d &a, const Vector3d &b, const Vector3d 
 	return box;
 }
 
-AABBTree::AABBTree(const MatrixXd &V, const MatrixXi &F) {//OK
+AABBTree::AABBTree(const MatrixXd &V, const MatrixXi &F) {
 	// Compute the centroids of all the triangles in the input mesh
 	MatrixXd centroids(F.rows(), V.cols());
 	centroids.setZero();
@@ -188,76 +188,12 @@ AABBTree::AABBTree(const MatrixXd &V, const MatrixXi &F) {//OK
 
 	// Method (2): Bottom-up approach.
 	// Merge nodes 2 by 2, starting from the leaves of the forest, until only 1 tree is left.
-
-	std::cout << "building AABB tree for mesh ..." << "\n";
-
-	int n = F.rows();
-	std::vector<int> S;
-
-	// going through every triangle in the mesh and adding a node for each to the AABB tree
-	// along with bounding box
-	for (unsigned i = 0; i < n; i ++){
-		Node new_node;
-		new_node.bbox = bbox_triangle(V.row(F(i, 0)), V.row(F(i, 1)), V.row(F(i, 2)));
-		new_node.triangle = i;
-		new_node.left = -1;
-		new_node.right = -1;
-		// adding the node to S to further analyse the closest AABB for merging to the top
-		S.push_back(i);
-		nodes.push_back(new_node);
-	}
-
-	while(S.size() != 1){
-		// looping till the size of S is greater than 1
-		for (unsigned i = 0; i < S.size() - 1; i ++){
-			double min_dist = 100000;
-			int closest_box = -1;
-			// for each node in S_i comparing the distance with S_j
-			for (unsigned j = i + 1; j < S.size(); j ++){
-				if (nodes[S[i]].bbox.squaredExteriorDistance(nodes[S[j]].bbox) < min_dist)
-				{
-					// if the distance is lesser than the previously computed min distance 
-					// updating it with the latest closest box
-					closest_box = j;
-					min_dist = nodes[S[i]].bbox.squaredExteriorDistance(nodes[S[j]].bbox);
-					if (min_dist == 0){
-						// if the min distance is zero then there is no point in checking any more as
-						// there can not be a closer box then this (there maybe another box that is zero but not considered)
-						break;
-					}
-				}
-			}
-			// creating the new node that merged node i and closest_box
-			Node new_node;
-			new_node.bbox.extend(nodes[S[i]].bbox);
-			new_node.bbox.extend(nodes[S[closest_box]].bbox);
-			new_node.left = S[i];
-			new_node.right = S[closest_box];
-			new_node.triangle = -1;
-			nodes.push_back(new_node);
-			nodes[S[i]].parent = nodes.size() - 1;
-			nodes[S[closest_box]].parent = nodes.size() - 1;
-
-			// adding the latest node to S to be analysed in place of the 
-			// i_th node that has already been analysed and merged
-			// this ensures that this new node is only considered in the next pass where all
-			// the AABB at the lower level of the tree are already merged
-			S[i] = nodes.size() - 1;
-			// removing the node that has been merged
-			S.erase(S.begin() + closest_box);
-		}
-	}
-	// adding the parent paramters to the root node
-	nodes[nodes.size() - 1].parent = -1;
-	// updating the struct with the index to the parent parameter
-	root = nodes.size() - 1;
-
-	std::cout << "Finished building AABB tree for mesh ..." << "\n";
+	
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-bool Sphere::intersect(const Ray &ray, Intersection &hit) {//OK
+bool Sphere::intersect(const Ray &ray, Intersection &hit) {
 	// TODO (Assignment 2)
 	double a=ray.direction.dot(ray.direction); //d*d
 	double b=2*ray.direction.dot(ray.origin-position); //2d(e-c)
@@ -269,8 +205,8 @@ bool Sphere::intersect(const Ray &ray, Intersection &hit) {//OK
 			t=(-b)/(2*a);
 		}
 		else{
-			t1=(-b-sqrt(delta))/(2*a);
-			t2=(-b+sqrt(delta))/(2*a);
+			t1=(-b+sqrt(delta))/(2*a);
+			t2=(-b-sqrt(delta))/(2*a);
 			if(t1>=0 && t2>=0){
 				if(t1<t2) t=t1;
 				else t=t2;
@@ -278,61 +214,61 @@ bool Sphere::intersect(const Ray &ray, Intersection &hit) {//OK
 			else if(t1 < 0 && t2 < 0) return false;
 			else if(t1>=0 && t2<0) t=t1;
 			else t=t2;
+
 		}
-	    hit.position=t * ray.direction+t*ray.origin;
+	    hit.position=t * ray.direction+ray.origin;
 	 	hit.normal = (hit.position - position).normalized();//p-c
 		return true;
 	}
-	else return false;  
-				
+	else return false; 
 }
 
-bool Parallelogram::intersect(const Ray &ray, Intersection &hit) {//OK
+bool Parallelogram::intersect(const Ray &ray, Intersection &hit) {
 	// TODO (Assignment 2)
 	Matrix3d leftEqu;
 	Vector3d rightEqu;
 	Vector3d uvt;
 	for(int i=0;i<3;i++){
-		leftEqu(i,0)=u[i];//i=0,(a-b)x; i=1,(a-b)y; i=2,(a-b)z
-		leftEqu(i,1)=v[i];//i=0,(a-c)x; i=1,(a-c)y; i=2,(a-c)z
-		leftEqu(i,2)=-ray.direction[i];
+		leftEqu(i,0)=-u[i];//i=0,(a-b)x; i=1,(a-b)y; i=2,(a-b)z
+		leftEqu(i,1)=-v[i];//i=0,(a-c)x; i=1,(a-c)y; i=2,(a-c)z
+		leftEqu(i,2)=ray.direction[i];
 	}
-	rightEqu= ray.origin-origin;
+	rightEqu= origin-ray.origin;
 	uvt= leftEqu.colPivHouseholderQr().solve(rightEqu);
 
 	if (uvt[0]<=1 &&uvt[0]>=0 &&uvt[1]<=1&&uvt[1]>=0&&uvt[2]>0) {
 		hit.position = uvt[2] * ray.direction + ray.origin;
-		hit.normal = (u.cross(v)).normalized();//(b-a)x(c-a)/|(b-a)x(c-a)|
+		hit.normal = u.cross(v).normalized();//(b-a)x(c-a)/|(b-a)x(c-a)|
 		return true;
 	}
-	else return false; 
+	else return false;
 }
 
 // -----------------------------------------------------------------------------
 
-bool intersect_triangle(const Ray &ray, const Vector3d &a, const Vector3d &b, const Vector3d &c, Intersection &hit) {//OK
+bool intersect_triangle(const Ray &ray, const Vector3d &a, const Vector3d &b, const Vector3d &c, Intersection &hit) {
 	// TODO (Assignment 3)
 	//
 	// Compute whether the ray intersects the given triangle.
 	// If you have done the parallelogram case, this should be very similar to it.
-	Vector3d u=a-b;
-	Vector3d v=c-b;
+	Vector3d u=b-a;
+	Vector3d v=c-a;
 	Matrix3d leftEqu;
 	Vector3d rightEqu;
 	Vector3d uvt;
 	for(int i=0;i<3;i++){
 		leftEqu(i,0)=u[i];//i=0,(a-b)x; i=1,(a-b)y; i=2,(a-b)z
 		leftEqu(i,1)=v[i];//i=0,(a-c)x; i=1,(a-c)y; i=2,(a-c)z
-		leftEqu(i,2)=-ray.direction[i];
+		leftEqu(i,2)=ray.direction[i];
 	}
-	rightEqu=ray.origin-b;
+	rightEqu=a-ray.direction;
 	uvt= leftEqu.colPivHouseholderQr().solve(rightEqu);
-	if (uvt[0]>=0 &&uvt[1]>=0 &&uvt[0]+uvt[1]<=1&&uvt[2]>=0) {
+	if (uvt[0]>=0 &&uvt[1]>=0 &&uvt[0]+uvt[1]<=1&&uvt[2]>0) {
 		hit.position = uvt[2] * ray.direction + ray.origin;
-		hit.normal = (-u.cross(v)).normalized();//(b-a)x(c-a)/|(b-a)x(c-a)|
+		hit.normal = u.cross(v).normalized();//(b-a)x(c-a)/|(b-a)x(c-a)|
 		return true;
 	}
-	else return false; 
+	else return false;
 }
 
 bool intersect_box(const Ray &ray, const AlignedBox3d &box) {
@@ -341,112 +277,37 @@ bool intersect_box(const Ray &ray, const AlignedBox3d &box) {
 	// Compute whether the ray intersects the given box.
 	// There is no need to set the resulting normal and ray parameter, since
 	// we are not testing with the real surface here anyway.
-	double t_max=10000;
-	double t_min=0;
-	double t1;
-	double t2;
+	double t1=(box.min()[0]-ray.origin[0])*ray.direction[0];
+	double t2=(box.max()[0]-ray.origin[0])*ray.direction[0];
+	double t_max=std::max(t1,t2);
+	double t_min=std::min(t1,t2);
 
-	for(int i=0;i<3;i++){
+	for(int i=1;i<3;i++){
 		t1=(box.min()[i]-ray.origin[i])*ray.direction[i];
 		t2=(box.max()[i]-ray.origin[i])*ray.direction[i];
 		if(ray.direction[i]<0){
-			double temp=t2;
-			t2=t1;
-			t1=temp;
+			double temp=t1;
+			t1=t2;
+			t2=temp;
 		}
 		double t_max=std::max(t_max,std::max(t1,t2));
 		double t_min=std::min(t_min,std::min(t1,t2));
-
-	}
-	if (t_max <= t_min){
+		if (t_max <= t_min){
 			return false;
-	} 
+		}
+	
+	}
 	return true; 
 }
 
-bool Mesh::intersect(const Ray &ray, Intersection &closest_hit) {//OK
+bool Mesh::intersect(const Ray &ray, Intersection &closest_hit) {
 	// TODO (Assignment 3)
 
 	// Method (1): Traverse every triangle and return the closest hit.
 
 	// Method (2): Traverse the BVH tree and test the intersection with a
 	// triangles at the leaf nodes that intersects the input ray.
-
-	Intersection current_hit;
-	int closest_index = -1;
-	bool speed_up = true; // set to false for method (1)
-	if(!speed_up){
-		// Method (1): Traverse every triangle and return the closest hit.
-		for (unsigned i = 0; i < facets.rows(); i++)
-		{
-			if (intersect_triangle(ray, vertices.row(facets(i, 0)), vertices.row(facets(i, 1)), vertices.row(facets(i, 2)), current_hit))
-			{
-				if (closest_index >= 0)
-				{
-					if ((ray.origin - current_hit.position).squaredNorm() < (ray.origin - closest_hit.position).squaredNorm())
-					{
-						closest_hit = current_hit;
-						closest_index = i;
-					}
-				}
-				else
-				{
-					closest_index = i;
-					closest_hit = current_hit;
-				}
-			}
-		}
-	}
-	else{
-		// Method (2): Traverse the BVH tree and test the intersection with a
-		// triangles at the leaf nodes that intersects the input ray.
-		std::vector<int> S;
-		S.push_back(bvh.root);
-
-		while (S.size() > 0){
-			for(unsigned i = 0; i < S.size(); i ++){
-				// checking ray intersect AABB 
-				if(intersect_box(ray, bvh.nodes[S[i]].bbox)){
-					if (bvh.nodes[S[i]].triangle == -1){
-						// if node is not a leaf then adding children to the search of the tree
-						S.push_back(bvh.nodes[S[i]].left);
-						S.push_back(bvh.nodes[S[i]].right);
-					}
-					else{
-						// if its a leaf node then checking if the ray hits the triangle
-						int index = bvh.nodes[S[i]].triangle;
-						if( intersect_triangle(ray, vertices.row(facets(index, 0)), vertices.row(facets(index, 1)), vertices.row(facets(index, 2)), current_hit)){
-							if (closest_index >= 0){
-								if ((ray.origin - current_hit.position).squaredNorm() < (ray.origin - closest_hit.position).squaredNorm())
-								{
-									// checking if the ray has hit another triangle that is farther than the current one in
-									// in which case it is updated to this triangle
-									closest_hit = current_hit;
-									closest_index = i;
-								}
-							}
-							else
-							{
-								closest_index = i;
-								closest_hit = current_hit;
-							}
-						}
-					}
-				}
-				// removing tree since it has been visited and analysed
-				S.erase(S.begin() + i);
-			}
-		}
-	}
-	if (closest_index < 0){
-			// Returning false since ray does not hit any triangle in the mesh
-			return false;
-		}
-		else
-		{
-			// returning true becuase ray hits a triangle in the mesh
-			return true;
-		}
+    return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -456,7 +317,7 @@ bool Mesh::intersect(const Ray &ray, Intersection &closest_hit) {//OK
 // Function declaration here (could be put in a header file)
 Vector3d ray_color(const Scene &scene, const Ray &ray, const Object &object, const Intersection &hit, int max_bounce);
 Object * find_nearest_object(const Scene &scene, const Ray &ray, Intersection &closest_hit);
-bool is_light_visible(const Scene &scene, const Ray &ray, const Light &light, const Intersection &hit);
+bool is_light_visible(const Scene &scene, const Ray &ray, const Light &light);
 Vector3d shoot_ray(const Scene &scene, const Ray &ray, int max_bounce);
 
 // -----------------------------------------------------------------------------
@@ -471,24 +332,21 @@ Vector3d ray_color(const Scene &scene, const Ray &ray, const Object &obj, const 
 	// Punctual lights contribution (direct lighting)
 	Vector3d lights_color(0, 0, 0);
 	double offset=0.001;
+
 	for (const Light &light : scene.lights) {
 		Vector3d Li = (light.position - hit.position).normalized();
 		Vector3d N = hit.normal;
-		Vector3d Middle=((light.position - hit.position) - ray.direction).normalized();
 
 		// TODO (Assignment 2, shadow rays)
-		Ray shadow_ray;
-		shadow_ray.origin = hit.position;
-	    shadow_ray.direction = (light.position - hit.position);
-	    shadow_ray.origin += offset*shadow_ray.direction;
-		if(!is_light_visible(scene, shadow_ray,light,hit)){
+		Ray shadow_ray(hit.position + offset*Li , Li);
+		if(!is_light_visible(scene, shadow_ray,light)){
 			continue;
-		} 
+		}
 		// Diffuse contribution
 		Vector3d diffuse = mat.diffuse_color * std::max(Li.dot(N), 0.0);
 
 		// TODO (Assignment 2, specular contribution)
-		Vector3d specular=mat.specular_color*std::pow(std::max(N.dot(Middle), 0.0), mat.specular_exponent);
+		Vector3d specular=mat.specular_color*std::pow(std::max(N.dot(((light.position - hit.position) - ray.direction).normalized()), 0.0), mat.specular_exponent);
 
 		// Attenuate lights according to the squared distance to the lights
 		Vector3d D = light.position - hit.position;
@@ -517,12 +375,13 @@ Vector3d ray_color(const Scene &scene, const Ray &ray, const Object &obj, const 
 			shadow_ray.direction=(light.position-reflected_hit.position);
 			shadow_ray.origin=shadow_ray.origin+offset*shadow_ray.direction;
 			
-			if(!is_light_visible(scene, shadow_ray,light,hit)){
+			if(!is_light_visible(scene, shadow_ray,light)){
 				continue;
 			}
 			// Diffuse contribution
 			Vector3d diffuse = mat.diffuse_color * std::max(Li.dot(N), 0.0);
 
+			// TODO: Specular contribution
 			Vector3d specular=mat.specular_color*std::pow(std::max(N.dot(((light.position - reflected_hit.position) - reflected_ray.direction).normalized()), 0.0), max_bounce);
 
 			// Attenuate lights according to the squared distance to the lights
@@ -552,18 +411,18 @@ Vector3d ray_color(const Scene &scene, const Ray &ray, const Object &obj, const 
 			for (const Light &light : scene.lights) {
 			Vector3d Li = (light.position - refraction_hit.position).normalized();
 			Vector3d N = refraction_hit.normal;
-
 			Ray shadow_ray;
 			
 			shadow_ray.origin=refraction_hit.position;
 			shadow_ray.direction=(light.position-refraction_hit.position);
 			shadow_ray.origin=shadow_ray.origin+offset*shadow_ray.direction;
-			if(!is_light_visible(scene, shadow_ray,light,hit)){
+			if(!is_light_visible(scene, shadow_ray,light)){
 				continue;
 			}
 			// Diffuse contribution
 			Vector3d diffuse = mat.diffuse_color * std::max(Li.dot(N), 0.0);
 
+			// TODO: Specular contribution
 			Vector3d specular=mat.specular_color*std::pow(std::max(N.dot(((light.position - reflected_hit.position) - reflected_ray.direction).normalized()), 0.0), max_bounce);
 
 			// Attenuate lights according to the squared distance to the lights
@@ -578,6 +437,7 @@ Vector3d ray_color(const Scene &scene, const Ray &ray, const Object &obj, const 
 		else break;
 		
 	}  
+
 	// Rendering equation
 	Vector3d C = ambient_color + lights_color + reflection_color + refraction_color;
 
@@ -589,8 +449,8 @@ Vector3d ray_color(const Scene &scene, const Ray &ray, const Object &obj, const 
 Object * find_nearest_object(const Scene &scene, const Ray &ray, Intersection &closest_hit) {
 	int closest_index = -1;
 	// TODO (Assignment 2, find nearest hit)
-	Intersection temp_hit;
-	for(unsigned i=0;i<scene.objects.size();i++){
+    Intersection temp_hit;
+	for(int i=0;i<scene.objects.size();i++){
 		if(scene.objects[i].get()->intersect(ray,temp_hit)){
 			if(closest_index<0){
 				closest_index=i;
@@ -614,29 +474,15 @@ Object * find_nearest_object(const Scene &scene, const Ray &ray, Intersection &c
 	}
 }
 
-bool is_light_visible(const Scene &scene, const Ray &ray, const Light &light, const Intersection &hit) {
+bool is_light_visible(const Scene &scene, const Ray &ray, const Light &light) {
 	// TODO (Assignment 2, shadow ray)
-	/* for (const ObjectPtr object : scene.objects) {
+	for (const ObjectPtr object : scene.objects) {
 		Intersection temphit;
 		if (object->intersect(ray, temphit)) {
 			return false; //this light will not contribute to the color.
 		}
 	}
-	return true;  */
-	Intersection closest_hit;
-	if (Object * obj = find_nearest_object(scene, ray, closest_hit)){
-		// ensuring that the intersection of the shadow ray is before the ligth source 
-		// if the object lies behind the light source, then light is still visible despite the intersection
-		if ((closest_hit.position - hit.position).squaredNorm() < (light.position - hit.position).squaredNorm()){
-			return false;
-		}
-		else{
-			return true;
-		}
-	}
-	else{
-		return true;
-	}
+	return true;
 }
 
 Vector3d shoot_ray(const Scene &scene, const Ray &ray, int max_bounce) {
@@ -664,10 +510,10 @@ void render_scene(const Scene &scene) {
 
 	// The camera always points in the direction -z
 	// The sensor grid is at a distance 'focal_length' from the camera center,
-	// and covers an viewing angle given by 'field_of_view'.//OK
+	// and covers an viewing angle given by 'field_of_view'.
 	double aspect_ratio = double(w) / double(h);
-	double scale_y =2*scene.camera.focal_length*tan(scene.camera.field_of_view/2.0); // TODO: Stretch the pixel grid by the proper amount here
-	double scale_x =aspect_ratio*scale_y;//
+	double scale_y = scene.camera.focal_length*tan(scene.camera.field_of_view/2.0); // TODO: Stretch the pixel grid by the proper amount here //P1
+	double scale_x =aspect_ratio*scale_y; //
 
 	// The pixel grid through which we shoot rays is at a distance 'focal_length'
 	// from the sensor, and is scaled from the canonical [-1,1] in order
@@ -681,40 +527,40 @@ void render_scene(const Scene &scene) {
 		std::cout << "Ray tracing: " << (100.0 * i) / w << "%\r" << std::flush;
 		for (unsigned j = 0; j < h; ++j) {
 			// TODO (Assignment 2, depth of field)
-			int number_ray=1;
-			double r=0;
-			for (int k = 0; k <number_ray; k++) {
 			Vector3d shift = grid_origin + (i+0.5)*x_displacement + (j+0.5)*y_displacement;
-
+            int number_ray=10;
+			int max_bounce = 5;
 			// Prepare the ray
 			Ray ray;
-
+            Vector3d C(0,0,0);
 			if (scene.camera.is_perspective) {
 				// Perspective camera
 				// TODO (Assignment 2, perspective camera)
-				ray.origin=scene.camera.position; 
-					
+				for (int k = 0; k <number_ray; k++) {
+					Ray sample_ray;
+					sample_ray.origin=scene.camera.position;
 					double x,y;
-				    x= r*(double)rand()/RAND_MAX*2.0-1.0;;
-				    y= r*(double)rand()/RAND_MAX*2.0-1.0;;
+				    x= (double)rand()/RAND_MAX*2.0-1.0;;
+				    y= (double)rand()/RAND_MAX*2.0-1.0;;
 
-				    ray.origin[0]+=scene.camera.lens_radius*x;
-				    ray.origin[1]+=scene.camera.lens_radius*y;
-                    ray.direction=shift-ray.origin; 
+				    sample_ray.origin[0]+=scene.camera.lens_radius*x;
+				    sample_ray.origin[1]+=scene.camera.lens_radius*y;
+					sample_ray.direction=shift-sample_ray.origin+scene.camera.position;
+                    C+= shoot_ray(scene, sample_ray, max_bounce);
+
+				}
+				C/=number_ray;
+
 			} else {
 				// Orthographic camera
 				ray.origin = scene.camera.position + Vector3d(shift[0], shift[1], 0);
 				ray.direction = Vector3d(0, 0, -1);
+				Vector3d C = shoot_ray(scene, ray, max_bounce);
 			}
-
-			int max_bounce = 5;
-			Vector3d C = shoot_ray(scene, ray, max_bounce);
-			R(i, j) += C(0)/number_ray;
-			G(i, j) += C(1)/number_ray;
-			B(i, j) += C(2)/number_ray;
+			R(i, j) = C(0);
+			G(i, j) = C(1);
+			B(i, j) = C(2);
 			A(i, j) = 1;
-
-			}
 		}
 	}
 
@@ -781,7 +627,7 @@ Scene load_scene(const std::string &filename) {
 			sphere->radius = entry["Radius"];
 			object = sphere;
 		} else if (entry["Type"] == "Parallelogram") {
-			// TODO//OK
+			// TODO
 			auto parallelogram = std::make_shared<Parallelogram>();
 			parallelogram->origin = read_vec3(entry["Origin"]);
             parallelogram->u = read_vec3(entry["u"]);
@@ -808,5 +654,4 @@ int main(int argc, char *argv[]) {
 	Scene scene = load_scene(argv[1]);
 	render_scene(scene);
 	return 0;
-} 
-
+}
