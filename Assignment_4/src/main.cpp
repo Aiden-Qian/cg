@@ -497,87 +497,9 @@ Vector3d ray_color(const Scene &scene, const Ray &ray, const Object &obj, const 
 
 	// TODO (Assignment 2, reflected ray)
 	Vector3d reflection_color(0, 0, 0);
-	Ray reflected_ray;
-	Intersection reflected_hit;
-	int reflected_bounce=max_bounce;
-	reflected_ray.origin=hit.position;
-	reflected_ray.direction=ray.direction-2 *(hit.normal.dot(ray.direction)) * hit.normal;
-	reflected_ray.origin += offset*reflected_ray.direction;
 	
-	for(int i=0;i<reflected_bounce;i++){
-
-		if(Object * obj = find_nearest_object(scene, reflected_ray, reflected_hit)){
-			for (const Light &light : scene.lights) {
-			Vector3d Li = (light.position - reflected_hit.position).normalized();
-			Vector3d N = reflected_hit.normal;
-
-			Ray shadow_ray;
-			
-			shadow_ray.origin=reflected_hit.position;
-			shadow_ray.direction=(light.position-reflected_hit.position);
-			shadow_ray.origin=shadow_ray.origin+offset*shadow_ray.direction;
-			
-			if(!is_light_visible(scene, shadow_ray,light,hit)){
-				continue;
-			}
-			// Diffuse contribution
-			Vector3d diffuse = mat.diffuse_color * std::max(Li.dot(N), 0.0);
-
-			Vector3d specular=mat.specular_color*std::pow(std::max(N.dot(((light.position - reflected_hit.position) - reflected_ray.direction).normalized()), 0.0), max_bounce);
-
-			// Attenuate lights according to the squared distance to the lights
-			Vector3d D = light.position - reflected_hit.position;
-			lights_color += (diffuse +specular).cwiseProduct(light.intensity) /  D.squaredNorm();
-		    }
-			reflected_ray.origin=reflected_hit.position;
-			reflected_ray.direction=reflected_ray.direction-2 *(reflected_hit.normal.dot(reflected_ray.direction)) * reflected_hit.normal;
-			reflected_ray.origin += offset*reflected_ray.direction;
-
-		}
-		else break;
-	}  
-
-
 	// TODO (Assignment 2, refracted ray)
 	Vector3d refraction_color(0, 0, 0);
-	Ray refraction_ray;
-	Intersection refraction_hit;
-    int refraction_bounce=max_bounce;
-	refraction_ray.origin=hit.position;
-	const double xita = mat.refraction_index;
-	refraction_ray.direction = xita*ray.direction + hit.normal*(xita*ray.direction.dot(hit.normal)+sqrt(1-sqrt(xita)*(1-sqrt(ray.direction.dot(hit.normal)))));
-	refraction_ray.origin += offset*refraction_ray.direction;
-	for(int i=0;i<refraction_bounce;i++){
-		if(Object * obj = find_nearest_object(scene, refraction_ray, refraction_hit)){
-			for (const Light &light : scene.lights) {
-			Vector3d Li = (light.position - refraction_hit.position).normalized();
-			Vector3d N = refraction_hit.normal;
-
-			Ray shadow_ray;
-			
-			shadow_ray.origin=refraction_hit.position;
-			shadow_ray.direction=(light.position-refraction_hit.position);
-			shadow_ray.origin=shadow_ray.origin+offset*shadow_ray.direction;
-			if(!is_light_visible(scene, shadow_ray,light,hit)){
-				continue;
-			}
-			// Diffuse contribution
-			Vector3d diffuse = mat.diffuse_color * std::max(Li.dot(N), 0.0);
-
-			Vector3d specular=mat.specular_color*std::pow(std::max(N.dot(((light.position - reflected_hit.position) - reflected_ray.direction).normalized()), 0.0), max_bounce);
-
-			// Attenuate lights according to the squared distance to the lights
-			Vector3d D = light.position - refraction_hit.position;
-			lights_color += (diffuse + specular).cwiseProduct(light.intensity) /  D.squaredNorm();
-		    }
-			refraction_ray.origin=refraction_hit.position;
-			refraction_ray.direction = xita*refraction_ray.direction + refraction_hit.normal*(xita*refraction_ray.direction.dot(refraction_hit.normal)+sqrt(1-sqrt(xita)*(1-sqrt(refraction_ray.direction.dot(refraction_hit.normal)))));
-			refraction_ray.origin += offset*refraction_ray.direction;
-
-		}
-		else break;
-		
-	}  
 	// Rendering equation
 	Vector3d C = ambient_color + lights_color + reflection_color + refraction_color;
 
