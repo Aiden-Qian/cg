@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <stack>
+#include <queue>
 
 // Eigen for matrix operations
 #include <Eigen/Dense>
@@ -181,78 +182,77 @@ AABBTree::AABBTree(const MatrixXd &V, const MatrixXi &F) {//OK
 	}
 
 	// TODO (Assignment 3)
+	std::string method="top-down";
 
 	// Method (1): Top-down approach.
 	// Split each set of primitives into 2 sets of roughly equal size,
 	// based on sorting the centroids along one direction or another.
+	if(method=="top-down"){
 
-	// Method (2): Bottom-up approach.
-	// Merge nodes 2 by 2, starting from the leaves of the forest, until only 1 tree is left.
+		int n = F.rows();
+		std::vector<int> setting(n);
 
-	std::cout << "building AABB tree for mesh ..." << "\n";
-
-	int n = F.rows();
-	std::vector<int> S;
-
-	// going through every triangle in the mesh and adding a node for each to the AABB tree
-	// along with bounding box
-	for (unsigned i = 0; i < n; i ++){
-		Node new_node;
-		new_node.bbox = bbox_triangle(V.row(F(i, 0)), V.row(F(i, 1)), V.row(F(i, 2)));
-		new_node.triangle = i;
-		new_node.left = -1;
-		new_node.right = -1;
-		// adding the node to S to further analyse the closest AABB for merging to the top
-		S.push_back(i);
-		nodes.push_back(new_node);
-	}
-
-	while(S.size() != 1){
-		// looping till the size of S is greater than 1
-		for (unsigned i = 0; i < S.size() - 1; i ++){
-			double min_dist = 100000;
-			int closest_box = -1;
-			// for each node in S_i comparing the distance with S_j
-			for (unsigned j = i + 1; j < S.size(); j ++){
-				if (nodes[S[i]].bbox.squaredExteriorDistance(nodes[S[j]].bbox) < min_dist)
-				{
-					// if the distance is lesser than the previously computed min distance 
-					// updating it with the latest closest box
-					closest_box = j;
-					min_dist = nodes[S[i]].bbox.squaredExteriorDistance(nodes[S[j]].bbox);
-					if (min_dist == 0){
-						// if the min distance is zero then there is no point in checking any more as
-						// there can not be a closer box then this (there maybe another box that is zero but not considered)
-						break;
-					}
+		 std::function<int(int, int, int)> top_down = [&](int l, int r, int parent) {
+		if (r - l == 0) {
+			return -1;
+		}
+		else if (r - l == 1) { // leaf node
+			Node AABB_node;
+			Vector3d a = V.row(F(l, 0));
+			Vector3d b = V.row(F(l, 1));
+			Vector3d c = V.row(F(l, 2));
+			AABB_node.bbox = bbox_triangle(a, b, c);
+			AABB_node.parent = parent;
+			AABB_node.left = -1;
+			AABB_node.right = -1;
+			AABB_node.triangle = l;
+			nodes.push_back(AABB_node);
+			return (int) (nodes.size() - 1);
+		}
+		else {
+			AlignedBox3d temp;
+			for (int i = l; i < r; i++) {
+				Vector3d vector_cen = centroids.row(i).transpose();
+				temp.extend(vector_cen);
+			}
+			Vector3d diagonal = temp.diagonal();
+			int longest_side = 0;
+			for (int i = 1; i < 3; i++) {
+				if (diagonal(i) > diagonal(longest_side)) {
+					longest_side = i;
 				}
 			}
-			// creating the new node that merged node i and closest_box
-			Node new_node;
-			new_node.bbox.extend(nodes[S[i]].bbox);
-			new_node.bbox.extend(nodes[S[closest_box]].bbox);
-			new_node.left = S[i];
-			new_node.right = S[closest_box];
-			new_node.triangle = -1;
-			nodes.push_back(new_node);
-			nodes[S[i]].parent = nodes.size() - 1;
-			nodes[S[closest_box]].parent = nodes.size() - 1;
+			std::sort(setting.begin() + l, setting.begin() + r, [&](int i1, int i2) {
+				return centroids(i1, longest_side) < centroids(i2, longest_side);
+			});
+			int midpoint = (l + r) / 2;
+			int curr = nodes.size();
+			nodes.resize(curr + 1);
+			int left = top_down(l, midpoint, curr);
+			int right = top_down(midpoint, r, curr);
+			Node &AABB_node = nodes[curr];
+			AABB_node.left = left;
+			AABB_node.right = right;
+			AABB_node.parent = parent;
+			AABB_node.triangle = -1;
+			AABB_node.bbox = nodes[AABB_node.left].bbox.extend(nodes[AABB_node.right].bbox);
 
-			// adding the latest node to S to be analysed in place of the 
-			// i_th node that has already been analysed and merged
-			// this ensures that this new node is only considered in the next pass where all
-			// the AABB at the lower level of the tree are already merged
-			S[i] = nodes.size() - 1;
-			// removing the node that has been merged
-			S.erase(S.begin() + closest_box);
+			return curr;
 		}
-	}
-	// adding the parent paramters to the root node
-	nodes[nodes.size() - 1].parent = -1;
-	// updating the struct with the index to the parent parameter
-	root = nodes.size() - 1;
 
-	std::cout << "Finished building AABB tree for mesh ..." << "\n";
+	};
+
+	root = top_down(0, setting.size(), -1);  
+	
+	}
+	else{
+	// Method (2): Bottom-up approach.
+	// Merge nodes 2 by 2, starting from the leaves of the forest, until only 1 tree is left.
+	
+
+	}
+	
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -367,15 +367,10 @@ bool intersect_box(const Ray &ray, const AlignedBox3d &box) {
 bool Mesh::intersect(const Ray &ray, Intersection &closest_hit) {//OK
 	// TODO (Assignment 3)
 
-	// Method (1): Traverse every triangle and return the closest hit.
-
-	// Method (2): Traverse the BVH tree and test the intersection with a
-	// triangles at the leaf nodes that intersects the input ray.
-
 	Intersection current_hit;
-	int closest_index = -1;
-	bool speed_up = true; // set to false for method (1)
-	if(!speed_up){
+    int closest_index = -1;
+	std::string slow_fast = "fast"; // set to false for method (1)
+	if(slow_fast=="slow"){
 		// Method (1): Traverse every triangle and return the closest hit.
 		for (unsigned i = 0; i < facets.rows(); i++)
 		{
@@ -390,7 +385,7 @@ bool Mesh::intersect(const Ray &ray, Intersection &closest_hit) {//OK
 					}
 				}
 				else
-				{
+				{	
 					closest_index = i;
 					closest_hit = current_hit;
 				}
@@ -400,53 +395,48 @@ bool Mesh::intersect(const Ray &ray, Intersection &closest_hit) {//OK
 	else{
 		// Method (2): Traverse the BVH tree and test the intersection with a
 		// triangles at the leaf nodes that intersects the input ray.
-		std::vector<int> S;
-		S.push_back(bvh.root);
-
-		while (S.size() > 0){
-			for(unsigned i = 0; i < S.size(); i ++){
-				// checking ray intersect AABB 
-				if(intersect_box(ray, bvh.nodes[S[i]].bbox)){
-					if (bvh.nodes[S[i]].triangle == -1){
-						// if node is not a leaf then adding children to the search of the tree
-						S.push_back(bvh.nodes[S[i]].left);
-						S.push_back(bvh.nodes[S[i]].right);
+		std::vector<int> setting;
+		setting.push_back(bvh.root);
+		while (setting.size() > 0){
+			for(unsigned i = 0; i < setting.size(); i ++){
+				if(intersect_box(ray, bvh.nodes[setting[i]].bbox)){
+					if (bvh.nodes[setting[i]].triangle == -1){
+						setting.push_back(bvh.nodes[setting[i]].left);
+						setting.push_back(bvh.nodes[setting[i]].right);
 					}
 					else{
-						// if its a leaf node then checking if the ray hits the triangle
-						int index = bvh.nodes[S[i]].triangle;
+						int index = bvh.nodes[setting[i]].triangle;
 						if( intersect_triangle(ray, vertices.row(facets(index, 0)), vertices.row(facets(index, 1)), vertices.row(facets(index, 2)), current_hit)){
-							if (closest_index >= 0){
-								if ((ray.origin - current_hit.position).squaredNorm() < (ray.origin - closest_hit.position).squaredNorm())
-								{
-									// checking if the ray has hit another triangle that is farther than the current one in
-									// in which case it is updated to this triangle
-									closest_hit = current_hit;
-									closest_index = i;
-								}
+							if (closest_index < 0){
+								closest_index = i;
+								closest_hit = current_hit;
 							}
 							else
 							{
-								closest_index = i;
-								closest_hit = current_hit;
+								if ((ray.origin - current_hit.position).squaredNorm() < (ray.origin - closest_hit.position).squaredNorm())
+								{
+									
+									closest_hit = current_hit;
+									closest_index = i;
+								}	
 							}
 						}
 					}
 				}
-				// removing tree since it has been visited and analysed
-				S.erase(S.begin() + i);
+				setting.erase(setting.begin() + i);
 			}
 		}
+
 	}
+
 	if (closest_index < 0){
-			// Returning false since ray does not hit any triangle in the mesh
 			return false;
 		}
 		else
 		{
-			// returning true becuase ray hits a triangle in the mesh
 			return true;
-		}
+		}	
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -477,13 +467,14 @@ Vector3d ray_color(const Scene &scene, const Ray &ray, const Object &obj, const 
 		Vector3d Middle=((light.position - hit.position) - ray.direction).normalized();
 
 		// TODO (Assignment 2, shadow rays)
-		Ray shadow_ray;
+		/* Ray shadow_ray;
 		shadow_ray.origin = hit.position;
 	    shadow_ray.direction = (light.position - hit.position);
 	    shadow_ray.origin += offset*shadow_ray.direction;
 		if(!is_light_visible(scene, shadow_ray,light,hit)){
 			continue;
 		} 
+		 */
 		// Diffuse contribution
 		Vector3d diffuse = mat.diffuse_color * std::max(Li.dot(N), 0.0);
 
@@ -538,13 +529,7 @@ Object * find_nearest_object(const Scene &scene, const Ray &ray, Intersection &c
 
 bool is_light_visible(const Scene &scene, const Ray &ray, const Light &light, const Intersection &hit) {
 	// TODO (Assignment 2, shadow ray)
-	/* for (const ObjectPtr object : scene.objects) {
-		Intersection temphit;
-		if (object->intersect(ray, temphit)) {
-			return false; //this light will not contribute to the color.
-		}
-	}
-	return true;  */
+	
 	Intersection closest_hit;
 	if (Object * obj = find_nearest_object(scene, ray, closest_hit)){
 		// ensuring that the intersection of the shadow ray is before the ligth source 
@@ -616,13 +601,7 @@ void render_scene(const Scene &scene) {
 				// TODO (Assignment 2, perspective camera)
 				ray.origin=scene.camera.position; 
 					
-					double x,y;
-				    x= r*(double)rand()/RAND_MAX*2.0-1.0;;
-				    y= r*(double)rand()/RAND_MAX*2.0-1.0;;
-
-				    ray.origin[0]+=scene.camera.lens_radius*x;
-				    ray.origin[1]+=scene.camera.lens_radius*y;
-                    ray.direction=shift-ray.origin; 
+                ray.direction=shift-ray.origin; 
 			} else {
 				// Orthographic camera
 				ray.origin = scene.camera.position + Vector3d(shift[0], shift[1], 0);
@@ -643,7 +622,7 @@ void render_scene(const Scene &scene) {
 	std::cout << "Ray tracing: 100%  " << std::endl;
 
 	// Save to png
-	const std::string filename("raytrace.png");
+	const std::string filename("bunny.png");
 	write_matrix_to_png(R, G, B, A, filename);
 }
 

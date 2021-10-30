@@ -392,12 +392,12 @@ void render_scene(const Scene &scene) {
 				   
                     ray.origin=scene.camera.position; 
 					
-					/* double x,y;
-				    x= (double)rand()/RAND_MAX*2.0-1.0;;
-				    y= (double)rand()/RAND_MAX*2.0-1.0;;
+					double x,y;
+				    x= (double)rand()/RAND_MAX*2.0-1.0;
+				    y= (double)rand()/RAND_MAX*2.0-1.0;
 
 				    ray.origin[0]+=scene.camera.lens_radius*x;
-				    ray.origin[1]+=scene.camera.lens_radius*y; */
+				    ray.origin[1]+=scene.camera.lens_radius*y; 
                     ray.direction=shift-ray.origin; 
 				   
 
@@ -420,7 +420,7 @@ void render_scene(const Scene &scene) {
 	}
 
 	// Save to png
-	const std::string filename("raytrace11.png");
+	const std::string filename("raytrace.png");
 	write_matrix_to_png(R, G, B, A, filename);
 }
 
