@@ -126,13 +126,8 @@ void build_M_orth(UniformAttributes &uniform){
 
 
 
-int main(int argc, char *argv[]) 
+int main() 
 {
-	/* if (argc < 3) {
-		std::cerr << "Usage: " << argv[0] << " scene.json" << std::endl;
-		return 1;
-	}
-	Scene scene = load_scene(argv[1]); */
 
 	// The Framebuffer storing the image rendered by the rasterizer
 	Eigen::Matrix<FrameBufferAttributes,Eigen::Dynamic,Eigen::Dynamic> frameBuffer(500,500);
@@ -373,6 +368,7 @@ int main(int argc, char *argv[])
 		}
 
 		GifEnd(&g);
+		return 0;	
 		
 	}
 	else{
@@ -385,11 +381,12 @@ int main(int argc, char *argv[])
 		if (wireframe){
 			rasterize_lines(program, uniform, vertices_lines, 0.5, frameBuffer);
 		}
-		vector<uint8_t> image;
-		framebuffer_to_uint8(frameBuffer,image);
-		stbi_write_png("bunny.png", frameBuffer.rows(), frameBuffer.cols(), 4, image.data(), frameBuffer.rows()*4);
+		
 		
 	}
+	vector<uint8_t> image;
+	framebuffer_to_uint8(frameBuffer,image);
+	stbi_write_png("bunny.png", frameBuffer.rows(), frameBuffer.cols(), 4, image.data(), frameBuffer.rows()*4);
 
 	return 0;	
 
