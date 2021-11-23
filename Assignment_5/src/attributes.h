@@ -1,6 +1,8 @@
 #pragma once
 
 #include <Eigen/Core>
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
 
 class VertexAttributes
 {
@@ -21,16 +23,17 @@ class VertexAttributes
     ) 
     {
         VertexAttributes r;
-        r.position = alpha*a.position + beta*b.position + gamma*c.position;
+        r.position = alpha*a.position/a.position[3] + beta*b.position/b.position[3] + gamma*c.position/c.position[3];
 		// not modifing the normal since it is used to compute lighting in the world frame
-		r.normal =  alpha*a.normal + beta*b.normal + gamma*c.normal;//xiugai
-		r.color = alpha * a.color + beta * b.color + gamma * c.color;//xiugai
-        return r;
+		r.normal =  alpha*a.normal + beta*b.normal + gamma*c.normal;
+		r.color = alpha * a.color + beta * b.color + gamma * c.color;
+
+		return r;
     }
 
 	Eigen::Vector4f position;
-	Eigen::Vector3f normal;//xiugai
-	Eigen::Vector4f color;//xiugai
+	Eigen::Vector3f normal;
+	Eigen::Vector4f color;
 };
 
 class FragmentAttributes
@@ -40,9 +43,9 @@ class FragmentAttributes
 	{
 		color << r,g,b,a;
 	}
-
+	float depth;
 	Eigen::Vector4f color;
-	float depth;//xiugai
+	
 };
 
 class FrameBufferAttributes
@@ -52,41 +55,33 @@ class FrameBufferAttributes
 	{
 		color << r,g,b,a;
 	}
-
+	float depth = 4;
 	Eigen::Matrix<uint8_t,4,1> color;
-	float depth=2;
+	
 };
 
 class UniformAttributes
 {
-	////////////////////////////////////////////////////////////////////////////////
-	// Define types & classes
-	////////////////////////////////////////////////////////////////////////////////
 	struct Camera {
 		bool is_perspective;
 		Eigen::Vector3d position;
-		double field_of_view; // between 0 and PI
+		double field_of_view;
 		double focal_length;
-		double lens_radius; // for depth of field
-		Eigen::Vector3d gaze_direction;
-		Eigen::Vector3d view_up;
+		double lens_radius; 
+		Eigen::Vector3d z_dir;
+		Eigen::Vector3d y_dir;
 	};
-
 	public:
-	Camera camera;
-	Eigen::Vector4f core_center; 
-	Eigen::MatrixXf core_rotate;
-	Eigen::MatrixXf view;
+		Camera camera;	
+		Eigen::MatrixXf core_rotate; 
+		Eigen::Matrix4f view;
+		Eigen::Matrix4f M_orth, M_cam, M,P;
 
-	
-	Eigen::Matrix4f M_orth, M_cam, M_model, M, M_inv, M_orth_inv, M_cam_inv;
-	Eigen::Vector3f lbn, rtf; // lower and upper limit of camera view
-	Eigen::Vector4f color;
-	Eigen::Vector3f light_source;
-	Eigen::Matrix4f P;
+		Eigen::Vector3f lbn, rtf,light_source;
+		Eigen::Vector3f diffuse_color, specular_color, ambient_color;
+		Eigen::Vector4f core_center,color;
 
-	Eigen::Vector3f diffuse_color, specular_color, ambient_color;
-	float specular_exponent;
-
-
+		float specular_exponent;
 };
+		
+		
