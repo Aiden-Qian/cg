@@ -1,0 +1,11 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/Assignment_6.dir/src/SDLViewer.cpp.o"
+  "CMakeFiles/Assignment_6.dir/src/SDLViewer.cpp.o.d"
+  "libAssignment_6.a"
+  "libAssignment_6.pdb"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang CXX)
+  include(CMakeFiles/Assignment_6.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

@@ -1,6 +1,10 @@
 #pragma once
 
 #include <Eigen/Core>
+#include <utility>
+
+
+#include <vector>
 
 class VertexAttributes
 {
@@ -8,7 +12,7 @@ class VertexAttributes
 	VertexAttributes(float x = 0, float y = 0, float z = 0, float w = 1)
 	{
 		position << x,y,z,w;
-		color << 1,1,1,1;
+		color << 1,0,0,1;
 	}
 
     // Interpolates the vertex attributes
@@ -27,8 +31,10 @@ class VertexAttributes
         return r;
     }
 
-	Eigen::Vector4f position;
-	Eigen::Vector4f color;
+    friend std::ostream &operator<<(std::ostream &os, const VertexAttributes &v);
+
+    Eigen::Vector4f position;
+	Eigen::Vector4f color{0,0,0,1};
 };
 
 class FragmentAttributes
@@ -56,4 +62,30 @@ class FrameBufferAttributes
 class UniformAttributes
 {
 	public:
+    int width = 0;
+    int height = 0;
+    int zoomIn = 0;
+    float moveLeft = 0;
+    float moveUp = 0;
+    Eigen::Matrix<float,4,4> view_Matri;
+    Eigen::Matrix<float,4,4> inver_Matri;
+    UniformAttributes();
 };
+
+class Triangle {
+
+public:
+    VertexAttributes vs[3];
+    Triangle(const VertexAttributes &v1, const VertexAttributes &v2, const VertexAttributes &v3);
+    bool isInside(Eigen::Vector4f &vertex);
+    void shift(Eigen::Vector4f &shift);
+    void shift(float x, float y);
+    void rotate(float degree);
+    void scale(float factor);
+    Eigen::Vector4f centroid();
+    bool highlight = false;
+
+private:
+    static float sign (Eigen::Vector4f &p1, Eigen::Vector4f &p2, Eigen::Vector4f &p3);
+};
+
