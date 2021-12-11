@@ -261,7 +261,7 @@ int main(int argc, char *argv[])
 	bool wireframe =false;
 	bool flat_shading = true;
 	bool per_vertex_shading = false;
-	bool render_gif =true;
+	bool render_gif =false;
 	std::string categ;
 	if(wireframe){
 		categ="wireframe";
